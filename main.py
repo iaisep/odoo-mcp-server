@@ -796,32 +796,43 @@ async def root():
 
 def run_http_server():
     """Ejecutar servidor HTTP para health checks"""
-    port = int(os.getenv('PORT', 8000))
-    host = os.getenv('HOST', '0.0.0.0')
-    
-    logger.info(f"Iniciando servidor HTTP en {host}:{port}")
-    uvicorn.run(health_app, host=host, port=port, log_level="info")
+    try:
+        port = int(os.getenv('PORT', 8000))
+        host = os.getenv('HOST', '0.0.0.0')
+        
+        logger.info(f"Iniciando servidor HTTP en {host}:{port}")
+        uvicorn.run(health_app, host=host, port=port, log_level="error")
+    except Exception as e:
+        logger.error(f"Error iniciando servidor HTTP: {e}")
+        raise
 
 def main():
     """Función principal del servidor MCP"""
-    logger.info("Iniciando servidor MCP Odoo + Anthropic")
-    
-    # Inicializar clientes
-    initialize_clients()
-    
-    logger.info("Servidor MCP listo para recibir conexiones")
-    
-    # Ejecutar servidor HTTP en un hilo separado
-    http_thread = threading.Thread(target=run_http_server, daemon=True)
-    http_thread.start()
-    
-    # Ejecutar servidor MCP en el hilo principal
     try:
+        logger.info("Iniciando servidor MCP Odoo + Anthropic")
+        
+        # Inicializar clientes
+        initialize_clients()
+        
+        logger.info("Servidor MCP listo para recibir conexiones")
+        
+        # Ejecutar servidor HTTP en un hilo separado
+        logger.info("Iniciando servidor HTTP para health checks...")
+        http_thread = threading.Thread(target=run_http_server, daemon=True)
+        http_thread.start()
+        
+        # Dar tiempo para que el servidor HTTP inicie
+        time.sleep(2)
+        logger.info("Servidor HTTP iniciado, comenzando servidor MCP...")
+        
+        # Ejecutar servidor MCP en el hilo principal
         app.run()
+        
     except KeyboardInterrupt:
         logger.info("Servidor MCP detenido por usuario")
     except Exception as e:
-        logger.error(f"Error en servidor MCP: {e}")
+        logger.error(f"Error crítico en main(): {e}")
+        logger.exception("Detalles del error:")
         raise
 
 if __name__ == "__main__":
