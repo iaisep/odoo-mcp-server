@@ -759,14 +759,10 @@ def main():
     # Inicializar clientes
     initialize_clients()
     
-    # Configurar host y puerto
-    host = os.getenv('HOST', '0.0.0.0')
-    port = int(os.getenv('PORT', 8083))
-    
-    logger.info(f"Servidor MCP listo para recibir conexiones en {host}:{port}")
+    logger.info("Servidor MCP listo para recibir conexiones")
     
     # Ejecutar servidor MCP
-    app.run(host=host, port=port)
+    app.run()
 
 if __name__ == "__main__":
     main()
