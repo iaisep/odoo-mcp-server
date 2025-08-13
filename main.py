@@ -641,6 +641,160 @@ def update_partner(
     return safe_json_dumps(result.model_dump(), indent=2, ensure_ascii=False)
 
 @app.tool()
+def execute_natural_update(
+    instruction: str,
+    model: str = "crm.lead",
+    dry_run: bool = True,
+    max_records: int = 100
+) -> str:
+    """
+    Ejecuta actualizaciones masivas en registros basadas en instrucciones en lenguaje natural
+    
+    Args:
+        instruction: Instrucción en lenguaje natural sobre qué actualizar
+        model: Modelo de Odoo a actualizar (por defecto 'crm.lead')
+        dry_run: Si True, solo simula los cambios sin aplicarlos
+        max_records: Máximo número de registros a procesar (por seguridad)
+    
+    Returns:
+        str: JSON con el plan de actualización y resultado
+        
+    Ejemplos de instrucciones:
+    - "Llenar el campo email_from con 'contacto@universidad.edu' para todos los leads que tengan 'Universidad' en el nombre y email vacío"
+    - "Actualizar el campo phone con '+57-1-555-0000' para todos los registros de Bogotá que no tengan teléfono"
+    - "Cambiar el stage_id a 2 para todos los leads creados esta semana"
+    """
+    try:
+        if not odoo_client or not anthropic_client:
+            return json.dumps({"error": "Clientes no inicializados"})
+            
+        logger.info(f"Ejecutando actualización natural: {instruction}")
+        
+        # Usar Claude para interpretar la instrucción y generar el plan
+        interpretation_prompt = f"""
+Analiza esta instrucción para actualización masiva de registros en Odoo:
+
+INSTRUCCIÓN: "{instruction}"
+MODELO: {model}
+LÍMITE: {max_records} registros
+
+Tu tarea es generar un plan de actualización estructurado. Responde SOLO con un JSON válido con esta estructura:
+
+{{
+    "action": "update",
+    "model": "{model}",
+    "search_criteria": [
+        // Criterios de búsqueda para encontrar registros a actualizar
+        // Formato: ["campo", "operador", "valor"]
+        // Operadores: =, !=, ilike, not ilike, in, not in, >, <, >=, <=
+    ],
+    "updates": {{
+        // Campos a actualizar con sus nuevos valores
+        "campo1": "valor1",
+        "campo2": "valor2"
+    }},
+    "description": "Descripción clara de qué se va a hacer",
+    "estimated_impact": "Descripción del impacto esperado"
+}}
+
+IMPORTANTE:
+- Para campos de texto usa "ilike" para búsquedas parciales
+- Para campos vacíos usa ["campo", "=", false]
+- Para campos no vacíos usa ["campo", "!=", false]
+- Los valores deben ser del tipo correcto (str, int, float, bool)
+- Sé específico con los criterios para evitar actualizaciones no deseadas
+
+Ejemplos de search_criteria:
+- Buscar registros con nombre que contenga "Universidad": ["name", "ilike", "Universidad"]
+- Buscar registros con email vacío: ["email_from", "=", false]
+- Buscar registros creados hoy: ["create_date", ">=", "2024-01-01"]
+- Buscar registros de una ciudad específica: ["city", "=", "Bogotá"]
+"""
+
+        # Obtener interpretación de Claude
+        interpretation_response = anthropic_client.messages.create(
+            model="claude-3-5-haiku-20241022",
+            max_tokens=2000,
+            messages=[{"role": "user", "content": interpretation_prompt}]
+        )
+        
+        interpretation_text = interpretation_response.content[0].text.strip()
+        
+        try:
+            # Parsear la respuesta JSON
+            update_plan = json.loads(interpretation_text)
+        except json.JSONDecodeError as e:
+            return json.dumps({
+                "error": f"Error parseando plan de actualización: {e}",
+                "raw_response": interpretation_text
+            })
+        
+        # Validar estructura del plan
+        required_fields = ["search_criteria", "updates", "description"]
+        for field in required_fields:
+            if field not in update_plan:
+                return json.dumps({"error": f"Plan inválido: falta campo '{field}'"})
+        
+        # Buscar registros que coincidan con los criterios
+        logger.info(f"Buscando registros con criterios: {update_plan['search_criteria']}")
+        
+        # Convertir criterios de búsqueda al formato de Odoo
+        domain = update_plan['search_criteria']
+        
+        # Buscar registros
+        record_ids = odoo_client.search_records(model, domain, limit=max_records)
+        
+        if not record_ids:
+            return safe_json_dumps({
+                "plan": update_plan,
+                "found_records": 0,
+                "message": "No se encontraron registros que coincidan con los criterios"
+            })
+        
+        logger.info(f"Encontrados {len(record_ids)} registros para actualizar")
+        
+        # Obtener datos actuales de algunos registros para preview
+        preview_records = odoo_client.get_records(model, record_ids[:5])  # Solo primeros 5 para preview
+        
+        result = {
+            "plan": update_plan,
+            "found_records": len(record_ids),
+            "record_ids": record_ids,
+            "preview_current_data": preview_records[:3],  # Solo 3 para no sobrecargar
+            "dry_run": dry_run
+        }
+        
+        if dry_run:
+            result["message"] = f"SIMULACIÓN: Se actualizarían {len(record_ids)} registros. Use dry_run=False para ejecutar realmente."
+            result["planned_updates"] = update_plan["updates"]
+        else:
+            # Ejecutar actualización real
+            logger.info(f"Ejecutando actualización real en {len(record_ids)} registros")
+            
+            success = odoo_client.update_records(model, record_ids, update_plan["updates"])
+            
+            if success:
+                result["message"] = f"✅ Actualización exitosa en {len(record_ids)} registros"
+                result["status"] = "success"
+                
+                # Obtener datos actualizados de algunos registros para confirmación
+                updated_records = odoo_client.get_records(model, record_ids[:3])
+                result["preview_updated_data"] = updated_records
+            else:
+                result["message"] = "❌ Error durante la actualización"
+                result["status"] = "error"
+        
+        return safe_json_dumps(result)
+        
+    except Exception as e:
+        logger.error(f"Error en execute_natural_update: {e}")
+        return safe_json_dumps({
+            "error": str(e),
+            "instruction": instruction,
+            "model": model
+        })
+
+@app.tool()
 def natural_language_query(query: str, context: Optional[str] = None, max_tokens: int = 1000) -> str:
     """
     Procesar una consulta en lenguaje natural usando Anthropic Claude
@@ -967,6 +1121,28 @@ async def http_natural_query(query_data: dict):
     except Exception as e:
         return JSONResponse(content={"error": str(e)}, status_code=500)
 
+@health_app.post("/mcp/execute_natural_update")
+async def http_execute_natural_update(update_data: dict):
+    """HTTP endpoint para actualizaciones masivas con lenguaje natural"""
+    try:
+        instruction = update_data.get('instruction', '')
+        model = update_data.get('model', 'crm.lead')
+        dry_run = update_data.get('dry_run', True)
+        max_records = update_data.get('max_records', 100)
+        
+        if not instruction:
+            return JSONResponse(
+                content={"error": "El campo 'instruction' es requerido"}, 
+                status_code=400
+            )
+        
+        # Ejecutar la actualización natural
+        result = execute_natural_update(instruction, model, dry_run, max_records)
+        parsed_result = json.loads(result)
+        return JSONResponse(content=parsed_result)
+    except Exception as e:
+        return JSONResponse(content={"error": str(e)}, status_code=500)
+
 def main():
     """Función principal - Servidor HTTP permanente para Coolify"""
     try:
@@ -989,6 +1165,7 @@ def main():
         logger.info("  POST /mcp/create_lead - Crear lead")
         logger.info("  POST /mcp/get_partners - Obtener partners")
         logger.info("  POST /mcp/natural_query - Consulta en lenguaje natural")
+        logger.info("  POST /mcp/execute_natural_update - Actualizaciones masivas con lenguaje natural")
         
         # Ejecutar servidor HTTP como proceso principal (no daemon)
         uvicorn.run(

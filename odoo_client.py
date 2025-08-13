@@ -454,6 +454,85 @@ class OdooClient:
         except Exception as e:
             return OdooResponse(success=False, error=str(e))
     
+    def search_records(self, model: str, domain: list, limit: int = 100, fields: list = None) -> list:
+        """
+        Busca registros que coincidan con el dominio especificado
+        
+        Args:
+            model: Modelo de Odoo (ej: 'crm.lead', 'res.partner')
+            domain: Criterios de búsqueda en formato Odoo [[campo, operador, valor], ...]
+            limit: Límite máximo de registros a retornar
+            fields: Lista de campos a incluir (opcional)
+        
+        Returns:
+            list: Lista de IDs de registros encontrados
+        """
+        try:
+            # Buscar IDs que coincidan con el dominio
+            record_ids = self._execute_kw(model, 'search', [domain], {'limit': limit})
+            return record_ids if record_ids else []
+        except Exception as e:
+            logger.error(f"Error buscando registros en {model}: {e}")
+            return []
+    
+    def get_records(self, model: str, record_ids: list, fields: list = None) -> list:
+        """
+        Obtiene datos de registros por sus IDs
+        
+        Args:
+            model: Modelo de Odoo
+            record_ids: Lista de IDs de registros
+            fields: Lista de campos a incluir (opcional)
+        
+        Returns:
+            list: Lista con datos de los registros
+        """
+        try:
+            if not record_ids:
+                return []
+            
+            # Si no se especifican campos, obtener todos los campos básicos
+            if not fields:
+                if model == 'crm.lead':
+                    fields = ['id', 'name', 'contact_name', 'email_from', 'phone', 'city', 'create_date']
+                else:
+                    fields = ['id', 'name', 'create_date']
+            
+            records = self._execute_kw(model, 'read', [record_ids], {'fields': fields})
+            
+            # Serializar objetos datetime
+            return [serialize_datetime_objects(record) for record in records] if records else []
+            
+        except Exception as e:
+            logger.error(f"Error obteniendo registros de {model}: {e}")
+            return []
+    
+    def update_records(self, model: str, record_ids: list, values: dict) -> bool:
+        """
+        Actualiza múltiples registros con los valores especificados
+        
+        Args:
+            model: Modelo de Odoo
+            record_ids: Lista de IDs de registros a actualizar
+            values: Diccionario con campos y valores a actualizar
+        
+        Returns:
+            bool: True si la actualización fue exitosa
+        """
+        try:
+            if not record_ids or not values:
+                return False
+            
+            # Ejecutar actualización masiva
+            result = self._execute_kw(model, 'write', [record_ids, values])
+            
+            logger.info(f"Actualización masiva en {model}: {len(record_ids)} registros, resultado: {result}")
+            return bool(result)
+            
+        except Exception as e:
+            logger.error(f"Error actualizando registros en {model}: {e}")
+            return False
+
     def test_connection(self) -> OdooResponse:
         """Probar conexión con Odoo"""
         try:

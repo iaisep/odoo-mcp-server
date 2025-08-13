@@ -93,6 +93,32 @@ Agregar en `claude_desktop_config.json`:
 ### 🤖 Inteligencia Artificial
 - `natural_language_query` - Procesar consultas en lenguaje natural
 - `interpret_odoo_action` - Convertir texto a acciones de Odoo
+- **`execute_natural_update` - 🚀 Actualizaciones masivas con lenguaje natural (NUEVO)**
+
+#### 🚀 Actualizaciones Masivas con IA
+
+**Nueva funcionalidad revolucionaria** que permite ejecutar actualizaciones masivas usando instrucciones en lenguaje natural:
+
+```python
+# Ejemplos de instrucciones
+"Llenar el email_from con 'info@universidad.edu' para leads con 'Universidad' en el nombre y email vacío"
+"Actualizar phone a '+57-1-555-0000' para todos los leads de Bogotá sin teléfono" 
+"Cambiar stage_id a 2 para leads creados esta semana"
+"Asignar user_id = 5 a leads sin asignar con 'Ingeniería' en programa de interés"
+```
+
+**Parámetros:**
+- `instruction` (requerido): Instrucción en lenguaje natural
+- `model`: Modelo Odoo (defecto: 'crm.lead')
+- `dry_run`: Modo simulación (defecto: True) 
+- `max_records`: Límite de registros (defecto: 100)
+
+**Características de seguridad:**
+- ✅ Modo simulación por defecto
+- ✅ Límites configurables  
+- ✅ Vista previa antes de ejecutar
+- ✅ Interpretación IA con Claude
+- ✅ Validación de criterios
 
 ### 🎯 Herramientas auxiliares
 - `test_connections` - Probar conectividad
