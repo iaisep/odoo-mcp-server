@@ -122,7 +122,7 @@ class OdooClient:
                 'stage_id', 'priority', 'expected_revenue', 'probability',
                 'description', 'type', 'create_date', 'write_date',
                 'x_studio_programa_academico', 'x_studio_canal_de_contacto',
-                'x_studio_programa_de_interes', 'progress', 'manage_reason',
+                'x_studio_programa_de_inters', 'progress', 'manage_reason',
                 'action_request_lead'
             ]
             

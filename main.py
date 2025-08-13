@@ -218,7 +218,7 @@ def create_lead(
     type: str = "lead",
     x_studio_programa_academico: Optional[int] = None,
     x_studio_canal_de_contacto: Optional[str] = None,
-    x_studio_programa_de_interes: Optional[str] = None,
+    x_studio_programa_de_inters: Optional[str] = None,
     manage_reason: Optional[str] = None,
     action_request_lead: Optional[str] = None
 ) -> str:
@@ -249,7 +249,7 @@ def create_lead(
         type: Tipo ('lead' o 'opportunity')
         x_studio_programa_academico: ID del programa académico
         x_studio_canal_de_contacto: Canal de contacto
-        x_studio_programa_de_interes: Programa de interés
+        x_studio_programa_de_inters: Programa de interés
         manage_reason: Motivo de gestión
         action_request_lead: Acción solicitada por lead
     
@@ -283,7 +283,7 @@ def create_lead(
         type=type,
         x_studio_programa_academico=x_studio_programa_academico,
         x_studio_canal_de_contacto=x_studio_canal_de_contacto,
-        x_studio_programa_de_interes=x_studio_programa_de_interes,
+        x_studio_programa_de_inters=x_studio_programa_de_inters,
         manage_reason=manage_reason,
         action_request_lead=action_request_lead
     )
@@ -317,7 +317,7 @@ def update_lead(
     type: Optional[str] = None,
     x_studio_programa_academico: Optional[int] = None,
     x_studio_canal_de_contacto: Optional[str] = None,
-    x_studio_programa_de_interes: Optional[str] = None,
+    x_studio_programa_de_inters: Optional[str] = None,
     progress: Optional[float] = None,
     manage_reason: Optional[str] = None,
     action_request_lead: Optional[str] = None
@@ -350,7 +350,7 @@ def update_lead(
         type: Tipo ('lead' o 'opportunity')
         x_studio_programa_academico: ID del programa académico
         x_studio_canal_de_contacto: Canal de contacto
-        x_studio_programa_de_interes: Programa de interés
+        x_studio_programa_de_inters: Programa de interés
         progress: Progreso (0-100)
         manage_reason: Motivo de gestión
         action_request_lead: Acción solicitada por lead
@@ -386,7 +386,7 @@ def update_lead(
         type=type,
         x_studio_programa_academico=x_studio_programa_academico,
         x_studio_canal_de_contacto=x_studio_canal_de_contacto,
-        x_studio_programa_de_interes=x_studio_programa_de_interes,
+        x_studio_programa_de_inters=x_studio_programa_de_inters,
         progress=progress,
         manage_reason=manage_reason,
         action_request_lead=action_request_lead

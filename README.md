@@ -106,7 +106,7 @@ Agregar en `claude_desktop_config.json`:
 El servidor está optimizado para instituciones educativas con campos específicos:
 - `x_studio_programa_academico` - Programa académico de interés
 - `x_studio_canal_de_contacto` - Canal de primer contacto
-- `x_studio_programa_de_interes` - Programa específico de interés
+- `x_studio_programa_de_inters` - Programa específico de interés
 - `progress` - Progreso del proceso de admisión
 - `manage_reason` - Motivo de gestión del lead
 

@@ -249,8 +249,8 @@ class AnthropicClient:
             formatted += f"Teléfono: {lead_data['phone']}\n"
         
         # Información académica específica
-        if lead_data.get('x_studio_programa_de_interes'):
-            formatted += f"Programa de interés: {lead_data['x_studio_programa_de_interes']}\n"
+        if lead_data.get('x_studio_programa_de_inters'):
+            formatted += f"Programa de interés: {lead_data['x_studio_programa_de_inters']}\n"
         if lead_data.get('x_studio_canal_de_contacto'):
             formatted += f"Canal de contacto: {lead_data['x_studio_canal_de_contacto']}\n"
         if lead_data.get('progress'):

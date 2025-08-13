@@ -30,7 +30,7 @@ class LeadData(BaseModel):
     # Campos específicos del contexto universitario
     x_studio_programa_academico: Optional[int] = Field(None, description="ID del programa académico")
     x_studio_canal_de_contacto: Optional[str] = Field(None, description="Canal de contacto")
-    x_studio_programa_de_interes: Optional[str] = Field(None, description="Programa de interés")
+    x_studio_programa_de_inters: Optional[str] = Field(None, description="Programa de interés")
     progress: Optional[float] = Field(None, description="Progreso")
     manage_reason: Optional[str] = Field(None, description="Motivo de gestión")
     action_request_lead: Optional[str] = Field(None, description="Acción solicitada por lead")
