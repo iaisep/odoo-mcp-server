@@ -2,6 +2,7 @@ import xmlrpc.client
 import ssl
 import logging
 import os
+from datetime import datetime
 from typing import Dict, Any, List, Optional, Union
 from dotenv import load_dotenv
 from models import LeadData, PartnerData, LeadSearchFilters, PartnerSearchFilters, OdooResponse
@@ -140,9 +141,12 @@ class OdooClient:
             # Contar total
             total_count = self._execute_kw('crm.lead', 'search_count', [domain])
             
+            # Serializar objetos datetime antes de devolver
+            serialized_leads = serialize_datetime_objects(leads)
+            
             return OdooResponse(
                 success=True,
-                data=leads,
+                data=serialized_leads,
                 count=total_count,
                 message=f"Se encontraron {len(leads)} leads de {total_count} total"
             )
@@ -168,12 +172,15 @@ class OdooClient:
             created_lead = self._execute_kw(
                 'crm.lead', 'read',
                 [lead_id],
-                {'fields': ['id', 'name', 'contact_name', 'partner_name', 'email_from']}
+                {'fields': ['id', 'name', 'contact_name', 'partner_name', 'email_from', 'create_date', 'write_date']}
             )
+            
+            # Serializar objetos datetime
+            serialized_data = serialize_datetime_objects(created_lead[0] if created_lead else {'id': lead_id})
             
             return OdooResponse(
                 success=True,
-                data=created_lead[0] if created_lead else {'id': lead_id},
+                data=serialized_data,
                 message=f"Lead creado exitosamente con ID {lead_id}"
             )
             
@@ -208,12 +215,15 @@ class OdooClient:
                 updated_lead = self._execute_kw(
                     'crm.lead', 'read',
                     [lead_id],
-                    {'fields': ['id', 'name', 'contact_name', 'partner_name', 'email_from', 'write_date']}
+                    {'fields': ['id', 'name', 'contact_name', 'partner_name', 'email_from', 'write_date', 'create_date']}
                 )
+                
+                # Serializar objetos datetime
+                serialized_data = serialize_datetime_objects(updated_lead[0] if updated_lead else {'id': lead_id})
                 
                 return OdooResponse(
                     success=True,
-                    data=updated_lead[0] if updated_lead else {'id': lead_id},
+                    data=serialized_data,
                     message=f"Lead {lead_id} actualizado exitosamente"
                 )
             else:
@@ -282,9 +292,12 @@ class OdooClient:
             # Contar total
             total_count = self._execute_kw('res.partner', 'search_count', [domain])
             
+            # Serializar objetos datetime antes de devolver
+            serialized_partners = serialize_datetime_objects(partners)
+            
             return OdooResponse(
                 success=True,
-                data=partners,
+                data=serialized_partners,
                 count=total_count,
                 message=f"Se encontraron {len(partners)} partners de {total_count} total"
             )
@@ -310,12 +323,15 @@ class OdooClient:
             created_partner = self._execute_kw(
                 'res.partner', 'read',
                 [partner_id],
-                {'fields': ['id', 'name', 'display_name', 'email', 'is_company']}
+                {'fields': ['id', 'name', 'display_name', 'email', 'is_company', 'create_date', 'write_date']}
             )
+            
+            # Serializar objetos datetime
+            serialized_data = serialize_datetime_objects(created_partner[0] if created_partner else {'id': partner_id})
             
             return OdooResponse(
                 success=True,
-                data=created_partner[0] if created_partner else {'id': partner_id},
+                data=serialized_data,
                 message=f"Partner creado exitosamente con ID {partner_id}"
             )
             
@@ -350,12 +366,15 @@ class OdooClient:
                 updated_partner = self._execute_kw(
                     'res.partner', 'read',
                     [partner_id],
-                    {'fields': ['id', 'name', 'display_name', 'email', 'write_date']}
+                    {'fields': ['id', 'name', 'display_name', 'email', 'write_date', 'create_date']}
                 )
+                
+                # Serializar objetos datetime
+                serialized_data = serialize_datetime_objects(updated_partner[0] if updated_partner else {'id': partner_id})
                 
                 return OdooResponse(
                     success=True,
-                    data=updated_partner[0] if updated_partner else {'id': partner_id},
+                    data=serialized_data,
                     message=f"Partner {partner_id} actualizado exitosamente"
                 )
             else:
@@ -384,9 +403,12 @@ class OdooClient:
                 {'fields': ['id', 'name', 'sequence', 'fold', 'team_id']}
             )
             
+            # Serializar objetos datetime
+            serialized_stages = serialize_datetime_objects(stages)
+            
             return OdooResponse(
                 success=True,
-                data=stages,
+                data=serialized_stages,
                 message=f"Se encontraron {len(stages)} etapas"
             )
         except Exception as e:
@@ -401,9 +423,12 @@ class OdooClient:
                 {'fields': ['id', 'name', 'user_id', 'member_ids']}
             )
             
+            # Serializar objetos datetime
+            serialized_teams = serialize_datetime_objects(teams)
+            
             return OdooResponse(
                 success=True,
-                data=teams,
+                data=serialized_teams,
                 message=f"Se encontraron {len(teams)} equipos"
             )
         except Exception as e:
@@ -418,9 +443,12 @@ class OdooClient:
                 {'fields': ['id', 'name', 'code'], 'limit': 250}
             )
             
+            # Serializar objetos datetime
+            serialized_countries = serialize_datetime_objects(countries)
+            
             return OdooResponse(
                 success=True,
-                data=countries,
+                data=serialized_countries,
                 message=f"Se encontraron {len(countries)} países"
             )
         except Exception as e:
@@ -432,9 +460,12 @@ class OdooClient:
             # Verificar que podemos obtener info del usuario actual
             user_info = self._execute_kw('res.users', 'read', [self.uid], {'fields': ['name', 'login']})
             
+            # Serializar objetos datetime
+            serialized_info = serialize_datetime_objects(user_info[0] if user_info else {})
+            
             return OdooResponse(
                 success=True,
-                data=user_info[0] if user_info else {},
+                data=serialized_info,
                 message=f"Conexión exitosa con Odoo como {self.username}"
             )
         except Exception as e:
@@ -443,3 +474,16 @@ class OdooClient:
                 error=str(e),
                 message="Error probando conexión con Odoo"
             )
+
+def serialize_datetime_objects(obj):
+    """
+    Convierte recursivamente objetos datetime en strings para serialización JSON
+    """
+    if isinstance(obj, datetime):
+        return obj.strftime('%Y-%m-%d %H:%M:%S')
+    elif isinstance(obj, dict):
+        return {key: serialize_datetime_objects(value) for key, value in obj.items()}
+    elif isinstance(obj, list):
+        return [serialize_datetime_objects(item) for item in obj]
+    else:
+        return obj
