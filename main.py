@@ -12,6 +12,8 @@ from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
 from mcp.types import Tool, TextContent
 import json
+from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 
 # Importar nuestros módulos
 from odoo_client import OdooClient
@@ -25,8 +27,9 @@ from models import (
 load_dotenv()
 
 # Configurar logging
+log_level = os.getenv('LOG_LEVEL', 'INFO').upper()
 logging.basicConfig(
-    level=logging.INFO,
+    level=getattr(logging, log_level),
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         logging.StreamHandler(sys.stderr)  # MCP servers deben usar stderr para logs
@@ -724,6 +727,32 @@ def get_countries() -> str:
 
 # =================== INICIALIZACIÓN ===================
 
+@app.tool()
+def health_check() -> str:
+    """
+    Health check endpoint para verificar el estado del servidor
+    
+    Returns:
+        str: JSON con el estado del servidor
+    """
+    try:
+        status = {
+            "status": "healthy",
+            "service": "odoo-mcp-server",
+            "version": os.getenv('MCP_SERVER_VERSION', '1.0.0'),
+            "odoo_connected": bool(odoo_client and odoo_client.uid),
+            "anthropic_available": bool(anthropic_client),
+            "timestamp": str(asyncio.get_event_loop().time())
+        }
+        return json.dumps(status, indent=2, ensure_ascii=False)
+    except Exception as e:
+        error_status = {
+            "status": "unhealthy",
+            "error": str(e),
+            "timestamp": str(asyncio.get_event_loop().time())
+        }
+        return json.dumps(error_status, indent=2, ensure_ascii=False)
+
 def main():
     """Función principal del servidor MCP"""
     logger.info("Iniciando servidor MCP Odoo + Anthropic")
@@ -731,9 +760,14 @@ def main():
     # Inicializar clientes
     initialize_clients()
     
+    # Configurar host y puerto
+    host = os.getenv('HOST', '0.0.0.0')
+    port = int(os.getenv('PORT', 8083))
+    
+    logger.info(f"Servidor MCP listo para recibir conexiones en {host}:{port}")
+    
     # Ejecutar servidor MCP
-    logger.info("Servidor MCP listo para recibir conexiones")
-    app.run()
+    app.run(host=host, port=port)
 
 if __name__ == "__main__":
     main()
