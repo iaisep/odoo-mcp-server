@@ -4,7 +4,7 @@ services:
   odoo-mcp-server:
     build: .
     ports:
-      - "${PORT:-8000}:8000"
+      - "${PORT:-8001}:8000"
     environment:
       - ODOO_URL=${ODOO_URL}
       - ODOO_DB=${ODOO_DB}
