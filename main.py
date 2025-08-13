@@ -712,7 +712,7 @@ Ejemplos de search_criteria:
 """
 
         # Obtener interpretación de Claude
-        interpretation_response = anthropic_client.messages.create(
+        interpretation_response = anthropic_client.client.messages.create(
             model="claude-3-5-haiku-20241022",
             max_tokens=2000,
             messages=[{"role": "user", "content": interpretation_prompt}]
