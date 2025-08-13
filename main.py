@@ -48,6 +48,19 @@ app = FastMCP(
 # Inicializar FastAPI para health checks
 health_app = FastAPI(title="Odoo MCP Server Health")
 
+# Función helper para serialización JSON segura con datetime
+def safe_json_dumps(data, **kwargs):
+    """
+    Serializar datos a JSON aplicando serialización datetime automáticamente
+    """
+    try:
+        from odoo_client import serialize_datetime_objects
+        serialized_data = serialize_datetime_objects(data)
+        return json.dumps(serialized_data, **kwargs)
+    except Exception as e:
+        logger.error(f"Error en serialización JSON: {str(e)}")
+        return json.dumps({"error": f"Serialization error: {str(e)}"}, ensure_ascii=False)
+
 # Clientes globales
 odoo_client: Optional[OdooClient] = None
 anthropic_client: Optional[AnthropicClient] = None
@@ -178,7 +191,7 @@ def get_leads(
     )
     
     result = odoo_client.get_leads(filters)
-    return json.dumps(result.model_dump(), indent=2, ensure_ascii=False)
+    return safe_json_dumps(result.model_dump(), indent=2, ensure_ascii=False)
 
 @app.tool()
 def create_lead(
@@ -276,7 +289,7 @@ def create_lead(
     )
     
     result = odoo_client.create_lead(lead_data)
-    return json.dumps(result.model_dump(), indent=2, ensure_ascii=False)
+    return safe_json_dumps(result.model_dump(), indent=2, ensure_ascii=False)
 
 @app.tool()
 def update_lead(
@@ -390,7 +403,7 @@ def update_lead(
         filtered_data = lead_data
     
     result = odoo_client.update_lead(lead_id, filtered_data)
-    return json.dumps(result.model_dump(), indent=2, ensure_ascii=False)
+    return safe_json_dumps(result.model_dump(), indent=2, ensure_ascii=False)
 
 @app.tool()
 def get_partners(
@@ -446,7 +459,7 @@ def get_partners(
     )
     
     result = odoo_client.get_partners(filters)
-    return json.dumps(result.model_dump(), indent=2, ensure_ascii=False)
+    return safe_json_dumps(result.model_dump(), indent=2, ensure_ascii=False)
 
 @app.tool()
 def create_partner(
@@ -529,7 +542,7 @@ def create_partner(
     )
     
     result = odoo_client.create_partner(partner_data)
-    return json.dumps(result.model_dump(), indent=2, ensure_ascii=False)
+    return safe_json_dumps(result.model_dump(), indent=2, ensure_ascii=False)
 
 @app.tool()
 def update_partner(
@@ -625,7 +638,7 @@ def update_partner(
         filtered_data = partner_data
     
     result = odoo_client.update_partner(partner_id, filtered_data)
-    return json.dumps(result.model_dump(), indent=2, ensure_ascii=False)
+    return safe_json_dumps(result.model_dump(), indent=2, ensure_ascii=False)
 
 @app.tool()
 def natural_language_query(query: str, context: Optional[str] = None, max_tokens: int = 1000) -> str:
@@ -660,7 +673,9 @@ def natural_language_query(query: str, context: Optional[str] = None, max_tokens
     )
     
     result = anthropic_client.process_natural_language_query(nl_query)
-    return json.dumps(result.model_dump(), indent=2, ensure_ascii=False)
+    
+    # USAR FUNCIÓN HELPER PARA SERIALIZACIÓN SEGURA
+    return safe_json_dumps(result.model_dump(), indent=2, ensure_ascii=False)
 
 @app.tool()
 def interpret_odoo_action(query: str, context: Optional[str] = None) -> str:
@@ -686,7 +701,7 @@ def interpret_odoo_action(query: str, context: Optional[str] = None) -> str:
             query_context = {"raw_context": context}
     
     result = anthropic_client.interpret_odoo_action(query, query_context)
-    return json.dumps(result.model_dump(), indent=2, ensure_ascii=False)
+    return safe_json_dumps(result.model_dump(), indent=2, ensure_ascii=False)
 
 @app.tool()
 def get_crm_stages() -> str:
@@ -700,7 +715,7 @@ def get_crm_stages() -> str:
         return json.dumps({"error": "Cliente Odoo no disponible"}, ensure_ascii=False)
     
     result = odoo_client.get_crm_stages()
-    return json.dumps(result.model_dump(), indent=2, ensure_ascii=False)
+    return safe_json_dumps(result.model_dump(), indent=2, ensure_ascii=False)
 
 @app.tool()
 def get_crm_teams() -> str:
@@ -714,7 +729,7 @@ def get_crm_teams() -> str:
         return json.dumps({"error": "Cliente Odoo no disponible"}, ensure_ascii=False)
     
     result = odoo_client.get_crm_teams()
-    return json.dumps(result.model_dump(), indent=2, ensure_ascii=False)
+    return safe_json_dumps(result.model_dump(), indent=2, ensure_ascii=False)
 
 @app.tool()
 def get_countries() -> str:
@@ -728,7 +743,7 @@ def get_countries() -> str:
         return json.dumps({"error": "Cliente Odoo no disponible"}, ensure_ascii=False)
     
     result = odoo_client.get_countries()
-    return json.dumps(result.model_dump(), indent=2, ensure_ascii=False)
+    return safe_json_dumps(result.model_dump(), indent=2, ensure_ascii=False)
 
 # =================== INICIALIZACIÓN ===================
 
