@@ -791,45 +791,96 @@ async def root():
     return JSONResponse(content={
         "message": "Odoo MCP Server",
         "status": "running",
-        "health_endpoint": "/health"
+        "health_endpoint": "/health",
+        "mcp_tools": [
+            "get_leads", "create_lead", "update_lead", 
+            "get_partners", "create_partner", "natural_language_query"
+        ]
     })
 
-def run_http_server():
-    """Ejecutar servidor HTTP para health checks"""
+@health_app.post("/mcp/get_leads")
+async def http_get_leads(filters: dict = None):
+    """HTTP endpoint para obtener leads"""
     try:
-        port = int(os.getenv('PORT', 8000))
-        host = os.getenv('HOST', '0.0.0.0')
+        # Llamar directamente a la función MCP
+        stage_id = filters.get('stage_id') if filters else None
+        user_id = filters.get('user_id') if filters else None
+        partner_id = filters.get('partner_id') if filters else None
+        limit = filters.get('limit', 10) if filters else 10
         
-        logger.info(f"Iniciando servidor HTTP en {host}:{port}")
-        uvicorn.run(health_app, host=host, port=port, log_level="error")
+        result = get_leads(stage_id, user_id, partner_id, limit)
+        return JSONResponse(content=json.loads(result))
     except Exception as e:
-        logger.error(f"Error iniciando servidor HTTP: {e}")
-        raise
+        return JSONResponse(content={"error": str(e)}, status_code=500)
+
+@health_app.post("/mcp/create_lead")  
+async def http_create_lead(lead_data: dict):
+    """HTTP endpoint para crear leads"""
+    try:
+        result = create_lead(**lead_data)
+        return JSONResponse(content=json.loads(result))
+    except Exception as e:
+        return JSONResponse(content={"error": str(e)}, status_code=500)
+
+@health_app.post("/mcp/get_partners")
+async def http_get_partners(filters: dict = None):
+    """HTTP endpoint para obtener partners"""
+    try:
+        is_company = filters.get('is_company') if filters else None
+        country_id = filters.get('country_id') if filters else None
+        category_ids = filters.get('category_ids') if filters else None
+        limit = filters.get('limit', 10) if filters else 10
+        
+        result = get_partners(is_company, country_id, category_ids, limit)
+        return JSONResponse(content=json.loads(result))
+    except Exception as e:
+        return JSONResponse(content={"error": str(e)}, status_code=500)
+
+@health_app.post("/mcp/natural_query")
+async def http_natural_query(query_data: dict):
+    """HTTP endpoint para consultas en lenguaje natural"""
+    try:
+        query = query_data.get('query', '')
+        context = query_data.get('context', '')
+        result = natural_language_query(query, context)
+        return JSONResponse(content=json.loads(result))
+    except Exception as e:
+        return JSONResponse(content={"error": str(e)}, status_code=500)
 
 def main():
-    """Función principal del servidor MCP"""
+    """Función principal - Servidor HTTP permanente para Coolify"""
     try:
-        logger.info("Iniciando servidor MCP Odoo + Anthropic")
+        logger.info("Iniciando Odoo MCP Server como servidor HTTP")
         
         # Inicializar clientes
         initialize_clients()
         
-        logger.info("Servidor MCP listo para recibir conexiones")
+        logger.info("Clientes inicializados. Servidor listo para recibir peticiones HTTP.")
         
-        # Ejecutar servidor HTTP en un hilo separado
-        logger.info("Iniciando servidor HTTP para health checks...")
-        http_thread = threading.Thread(target=run_http_server, daemon=True)
-        http_thread.start()
+        # Configurar servidor HTTP
+        port = int(os.getenv('PORT', 8001))
+        host = os.getenv('HOST', '0.0.0.0')
         
-        # Dar tiempo para que el servidor HTTP inicie
-        time.sleep(2)
-        logger.info("Servidor HTTP iniciado, comenzando servidor MCP...")
+        logger.info(f"Iniciando servidor HTTP permanente en {host}:{port}")
+        logger.info("Endpoints disponibles:")
+        logger.info("  GET  /health - Health check")
+        logger.info("  GET  / - Información del servidor")
+        logger.info("  POST /mcp/get_leads - Obtener leads")
+        logger.info("  POST /mcp/create_lead - Crear lead")
+        logger.info("  POST /mcp/get_partners - Obtener partners")
+        logger.info("  POST /mcp/natural_query - Consulta en lenguaje natural")
         
-        # Ejecutar servidor MCP en el hilo principal
-        app.run()
+        # Ejecutar servidor HTTP como proceso principal (no daemon)
+        uvicorn.run(
+            health_app, 
+            host=host, 
+            port=port, 
+            log_level="info",
+            access_log=True
+        )
         
     except KeyboardInterrupt:
-        logger.info("Servidor MCP detenido por usuario")
+        logger.info("Servidor detenido por usuario")
     except Exception as e:
         logger.error(f"Error crítico en main(): {e}")
         logger.exception("Detalles del error:")
