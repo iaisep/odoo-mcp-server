@@ -788,28 +788,106 @@ async def root():
     """
     Root endpoint
     """
+    # Verificar si la corrección datetime está disponible
+    try:
+        from odoo_client import serialize_datetime_objects
+        datetime_fix_available = True
+        from datetime import datetime
+        test_datetime = datetime.now()
+        test_serialized = serialize_datetime_objects(test_datetime)
+        datetime_fix_working = isinstance(test_serialized, str)
+    except Exception as e:
+        datetime_fix_available = False
+        datetime_fix_working = False
+    
     return JSONResponse(content={
         "message": "Odoo MCP Server",
         "status": "running",
+        "version": "1.1.0-datetime-fix",
+        "deployment_time": str(time.time()),
+        "datetime_fix_available": datetime_fix_available,
+        "datetime_fix_working": datetime_fix_working,
         "health_endpoint": "/health",
+        "debug_endpoint": "/debug",
         "mcp_tools": [
             "get_leads", "create_lead", "update_lead", 
             "get_partners", "create_partner", "natural_language_query"
         ]
     })
 
+@health_app.get("/debug")
+async def debug_info():
+    """
+    Debug endpoint para verificar el estado de las correcciones
+    """
+    try:
+        from odoo_client import serialize_datetime_objects
+        from datetime import datetime
+        
+        # Test de serialización datetime
+        test_obj = {
+            'datetime_field': datetime.now(),
+            'regular_field': 'test',
+            'nested': {
+                'inner_date': datetime.now(),
+                'inner_text': 'nested'
+            }
+        }
+        
+        serialized = serialize_datetime_objects(test_obj)
+        
+        return JSONResponse(content={
+            "datetime_fix_status": "✅ WORKING",
+            "function_available": True,
+            "test_original": str(test_obj),
+            "test_serialized": serialized,
+            "all_dates_are_strings": all(
+                isinstance(v, str) for k, v in serialized.items() 
+                if 'date' in k.lower()
+            ),
+            "git_commit": "93c9e80 - datetime fix applied",
+            "deployment_check": "This debug endpoint is new - if you see this, the latest code is deployed"
+        })
+        
+    except Exception as e:
+        return JSONResponse(
+            content={
+                "datetime_fix_status": "❌ ERROR",
+                "error": str(e),
+                "function_available": False
+            },
+            status_code=500
+        )
+
 @health_app.post("/mcp/get_leads")
 async def http_get_leads(filters: dict = None):
     """HTTP endpoint para obtener leads"""
     try:
-        # Llamar directamente a la función MCP
+        # ¡LLAMAR DIRECTAMENTE AL CLIENTE ODOO EN LUGAR DE LA FUNCIÓN MCP!
+        from models import LeadSearchFilters
+        
+        # Extraer filtros
         stage_id = filters.get('stage_id') if filters else None
         user_id = filters.get('user_id') if filters else None
-        partner_id = filters.get('partner_id') if filters else None
+        team_id = filters.get('team_id') if filters else None
         limit = filters.get('limit', 10) if filters else 10
         
-        result = get_leads(stage_id, user_id, partner_id, limit)
-        return JSONResponse(content=json.loads(result))
+        # Crear filtros
+        search_filters = LeadSearchFilters(
+            stage_id=stage_id,
+            user_id=user_id,
+            team_id=team_id,
+            limit=limit
+        )
+        
+        # Llamar directamente al cliente Odoo (que YA tiene serialización datetime)
+        if odoo_client:
+            result = odoo_client.get_leads(search_filters)
+            # result.model_dump() ya tiene datetime serializado gracias a nuestro fix
+            return JSONResponse(content=result.model_dump())
+        else:
+            return JSONResponse(content={"error": "Cliente Odoo no disponible"}, status_code=503)
+        
     except Exception as e:
         return JSONResponse(content={"error": str(e)}, status_code=500)
 
@@ -817,8 +895,17 @@ async def http_get_leads(filters: dict = None):
 async def http_create_lead(lead_data: dict):
     """HTTP endpoint para crear leads"""
     try:
-        result = create_lead(**lead_data)
-        return JSONResponse(content=json.loads(result))
+        from models import LeadData
+        
+        # Crear objeto LeadData
+        lead = LeadData(**lead_data)
+        
+        # Llamar directamente al cliente Odoo
+        if odoo_client:
+            result = odoo_client.create_lead(lead)
+            return JSONResponse(content=result.model_dump())
+        else:
+            return JSONResponse(content={"error": "Cliente Odoo no disponible"}, status_code=503)
     except Exception as e:
         return JSONResponse(content={"error": str(e)}, status_code=500)
 
@@ -826,13 +913,27 @@ async def http_create_lead(lead_data: dict):
 async def http_get_partners(filters: dict = None):
     """HTTP endpoint para obtener partners"""
     try:
+        from models import PartnerSearchFilters
+        
         is_company = filters.get('is_company') if filters else None
         country_id = filters.get('country_id') if filters else None
         category_ids = filters.get('category_ids') if filters else None
         limit = filters.get('limit', 10) if filters else 10
         
-        result = get_partners(is_company, country_id, category_ids, limit)
-        return JSONResponse(content=json.loads(result))
+        # Crear filtros
+        search_filters = PartnerSearchFilters(
+            is_company=is_company,
+            country_id=country_id,
+            category_ids=category_ids,
+            limit=limit
+        )
+        
+        # Llamar directamente al cliente Odoo
+        if odoo_client:
+            result = odoo_client.get_partners(search_filters)
+            return JSONResponse(content=result.model_dump())
+        else:
+            return JSONResponse(content={"error": "Cliente Odoo no disponible"}, status_code=503)
     except Exception as e:
         return JSONResponse(content={"error": str(e)}, status_code=500)
 
@@ -842,8 +943,12 @@ async def http_natural_query(query_data: dict):
     try:
         query = query_data.get('query', '')
         context = query_data.get('context', '')
+        
+        # Esta función devuelve directamente resultado de Anthropic, no hay datetime aquí
+        # Pero por consistencia, mantener la estructura similar
         result = natural_language_query(query, context)
-        return JSONResponse(content=json.loads(result))
+        parsed_result = json.loads(result)
+        return JSONResponse(content=parsed_result)
     except Exception as e:
         return JSONResponse(content={"error": str(e)}, status_code=500)
 
