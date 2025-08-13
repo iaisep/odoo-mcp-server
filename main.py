@@ -39,8 +39,7 @@ logger = logging.getLogger(__name__)
 
 # Inicializar FastMCP
 app = FastMCP(
-    name=os.getenv("MCP_SERVER_NAME", "odoo-mcp-server"),
-    version=os.getenv("MCP_SERVER_VERSION", "1.0.0")
+    name=os.getenv("MCP_SERVER_NAME", "odoo-mcp-server")
 )
 
 # Clientes globales
