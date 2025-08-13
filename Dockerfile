@@ -22,7 +22,7 @@ COPY . .
 RUN mkdir -p /app/logs
 
 # Exponer el puerto
-EXPOSE 8083
+EXPOSE 8000
 
 # Variable de entorno por defecto
 ENV PYTHONPATH=/app

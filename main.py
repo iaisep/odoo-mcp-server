@@ -7,6 +7,8 @@ import os
 import sys
 import asyncio
 import logging
+import threading
+import time
 from typing import Any, Dict, List, Optional
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
@@ -14,6 +16,7 @@ from mcp.types import Tool, TextContent
 import json
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
+import uvicorn
 
 # Importar nuestros módulos
 from odoo_client import OdooClient
@@ -41,6 +44,9 @@ logger = logging.getLogger(__name__)
 app = FastMCP(
     name=os.getenv("MCP_SERVER_NAME", "odoo-mcp-server")
 )
+
+# Inicializar FastAPI para health checks
+health_app = FastAPI(title="Odoo MCP Server Health")
 
 # Clientes globales
 odoo_client: Optional[OdooClient] = None
@@ -752,6 +758,50 @@ def health_check() -> str:
         }
         return json.dumps(error_status, indent=2, ensure_ascii=False)
 
+# =================== HEALTH CHECK HTTP ENDPOINT ===================
+
+@health_app.get("/health")
+async def http_health_check():
+    """
+    HTTP Health check endpoint para Coolify y otros sistemas de monitoreo
+    """
+    try:
+        status = {
+            "status": "healthy",
+            "service": "odoo-mcp-server",
+            "version": os.getenv('MCP_SERVER_VERSION', '1.0.0'),
+            "odoo_connected": bool(odoo_client and odoo_client.uid),
+            "anthropic_available": bool(anthropic_client),
+            "timestamp": str(time.time())
+        }
+        return JSONResponse(content=status)
+    except Exception as e:
+        error_status = {
+            "status": "unhealthy",
+            "error": str(e),
+            "timestamp": str(time.time())
+        }
+        return JSONResponse(content=error_status, status_code=503)
+
+@health_app.get("/")
+async def root():
+    """
+    Root endpoint
+    """
+    return JSONResponse(content={
+        "message": "Odoo MCP Server",
+        "status": "running",
+        "health_endpoint": "/health"
+    })
+
+def run_http_server():
+    """Ejecutar servidor HTTP para health checks"""
+    port = int(os.getenv('PORT', 8000))
+    host = os.getenv('HOST', '0.0.0.0')
+    
+    logger.info(f"Iniciando servidor HTTP en {host}:{port}")
+    uvicorn.run(health_app, host=host, port=port, log_level="info")
+
 def main():
     """Función principal del servidor MCP"""
     logger.info("Iniciando servidor MCP Odoo + Anthropic")
@@ -761,8 +811,18 @@ def main():
     
     logger.info("Servidor MCP listo para recibir conexiones")
     
-    # Ejecutar servidor MCP
-    app.run()
+    # Ejecutar servidor HTTP en un hilo separado
+    http_thread = threading.Thread(target=run_http_server, daemon=True)
+    http_thread.start()
+    
+    # Ejecutar servidor MCP en el hilo principal
+    try:
+        app.run()
+    except KeyboardInterrupt:
+        logger.info("Servidor MCP detenido por usuario")
+    except Exception as e:
+        logger.error(f"Error en servidor MCP: {e}")
+        raise
 
 if __name__ == "__main__":
     main()
